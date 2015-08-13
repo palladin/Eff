@@ -21,7 +21,8 @@ let pureState<'T, 'Ans> (c : Eff<'T, int -> 'Ans>) : Eff<'T, int -> 'Ans> =
             | :? Put<int, int -> 'Ans> as put -> return! Cont (fun _ _ -> put.K () put.Value)
     }
     
-test () |> pureState |> run (fun x -> (fun s -> (x, s))) |> (fun f -> f 1)
+// Apply state effect and execute
+test () |> pureState |> run (fun x -> (fun s -> (x, s))) |> (fun f -> f 1) // // (4, 4)
 ```
 
 
