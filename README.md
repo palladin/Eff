@@ -17,8 +17,8 @@ let pureState<'T, 'Ans> (c : Eff<'T, int -> 'Ans>) : Eff<'T, int -> 'Ans> =
         try
             return! c
         with 
-            | :? Get<int, int -> 'Ans> as get -> return! Cont (fun _ s -> get.K s s)
-            | :? Put<int, int -> 'Ans> as put -> return! Cont (fun _ _ -> put.K () put.Value)
+            | :? Get<int, int -> 'Ans> as get -> return! Eff (fun _ s -> get.K s s)
+            | :? Put<int, int -> 'Ans> as put -> return! Eff (fun _ _ -> put.K () put.Value)
     }
     
 // Apply state effect and execute
