@@ -45,6 +45,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="CoreTypes.fs" />
+    <Compile Include="State.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <PropertyGroup>
