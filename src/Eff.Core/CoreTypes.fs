@@ -30,4 +30,7 @@ type EffBuilder() =
 [<AutoOpen>]
 module Eff = 
 
+    let run (return' : 'T -> 'R) (eff : Eff<'T, 'R>) = let (Eff cont) = eff in cont (return', fun ex -> raise ex)
+
     let eff = new EffBuilder()
+    
