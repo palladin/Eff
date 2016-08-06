@@ -10,6 +10,10 @@ type Eff<'T, 'R> = Eff of ((('T -> 'R) * (exn -> 'R)) -> 'R)
 type Effect() =
     inherit Exception()
 
+type Done<'T>(v : 'T) = 
+    inherit Effect()
+    member self.Value = v
+
 // Basic builder 
 type EffBuilder() = 
     member self.Return (x : 'T) : Eff<'T, 'R> = Eff (fun (k, _) -> k x)
@@ -30,6 +34,8 @@ type EffBuilder() =
 [<AutoOpen>]
 module Eff = 
 
+    let done' (v : 'T) : Effect = new Done<'T>(v) :> _ 
+    let shift (f : ('T -> 'R) -> 'R) : Eff<'T, 'R> = Eff (fun (k, _) -> f k)
     let run (return' : 'T -> 'R) (eff : Eff<'T, 'R>) = let (Eff cont) = eff in cont (return', fun ex -> raise ex)
 
     let eff = new EffBuilder()

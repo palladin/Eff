@@ -20,6 +20,13 @@ module State =
     let get () : Eff<'S, 'Ans> = 
         Eff (fun (k, exk) ->  exk <| new Get<'S,'Ans>(k))
 
+    // explicit result effect
+    let put' (v : 'S) : Eff<unit, Effect> =
+        shift (fun k -> new Put<'S, Effect>(v, k) :> _)
+
+    let get' () : Eff<'S, Effect> = 
+        shift (fun k -> new Get<'S, Effect>(k) :> _)
+
 
     // state effect handlers
     let pureState<'T, 'S, 'Ans> (eff' : Eff<'T, 'S -> 'Ans>) : Eff<'T, 'S -> 'Ans> = 
@@ -31,9 +38,9 @@ module State =
                 | :? Put<'S, 'S -> 'Ans> as put -> return! Eff (fun _ _ -> put.K () put.Value)
         }
 
-    let refState<'T, 'S, 'Ans> (eff' : Eff<'T, 'Ans>) : Eff<'T, 'Ans> = 
+    let refState<'T, 'S, 'Ans> (s : 'S) (eff' : Eff<'T, 'Ans>) : Eff<'T, 'Ans> = 
         eff {
-            let stateRef = ref Unchecked.defaultof<'S>
+            let stateRef = ref s
             try
                 return! eff'
             with 
