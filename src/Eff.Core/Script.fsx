@@ -1,8 +1,10 @@
 ﻿
 #load "CoreTypes.fs"
 #load "State.fs"
+#load "NonDet.fs"
 open Eff.Core
 open Eff.Core.State
+open Eff.Core.NonDet
 
 // State examples
 let test () : Eff<int, 'Ans> = 
@@ -38,3 +40,14 @@ let handler (s : 'S) (eff : Eff<'T, Effect>) : ('T * 'S) =
     loop s (run done' eff) 
 
 handler 1 (test' ()) // (4, 4)
+
+
+// Non-determinism examples
+let nonDetTest () : Eff<int * string, 'Ans> = 
+    eff {
+        let! x = choose (1, 2)
+        let! y = choose ("1", "2")
+        return (x, y)
+    }
+    
+nonDetTest () |> collectNonDet |> run (fun x -> Seq.singleton x) // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]

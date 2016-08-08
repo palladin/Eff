@@ -45,8 +45,9 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="CoreTypes.fs" />
-    <Compile Include="State.fs" />
+    <Compile Include="NonDet.fs" />
     <None Include="Script.fsx" />
+    <Compile Include="State.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
