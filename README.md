@@ -1,5 +1,5 @@
 # Eff
-Eff is a library for programming with Algebraic Effects in F# inspired by the [Eff] programming language and the implementation of Algebraic Effects in [OCaml] and [Haskell]. The main idea is to repurpose F#'s computation expressions exception handling mechanism for effect handling.
+Eff is a library for programming with Algebraic Effects in F# inspired by the [Eff] programming language and the implementation of Algebraic Effects in [OCaml]-[Haskell] and especially from the paper [Eff Directly in OCaml].
 
 ``` fsharp
 // example
@@ -12,20 +12,21 @@ let test () =
         return! get ()
     } 
     
-let pureState<'T, 'Ans> (c : Eff<'T, int -> 'Ans>) : Eff<'T, int -> 'Ans> = 
-    eff {
-        try
-            return! c
-        with 
-            | :? Get<int, int -> 'Ans> as get -> return! Eff (fun _ s -> get.K s s)
-            | :? Put<int, int -> 'Ans> as put -> return! Eff (fun _ _ -> put.K () put.Value)
-    }
-    
+let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : ('T * 'S) =
+    let rec loop (s : 'S) (effect : Effect) = 
+        match effect with
+        | :? Get<'S, Effect> as get -> loop s (get.K s) 
+        | :? Put<'S, Effect> as put -> loop put.Value (put.K ())
+        | :? Done<'T> as done' -> (done'.Value, s)
+        | _ -> failwith "Unhandled effect"
+    loop s (run done' eff) 
+
 // Apply state effect and execute
-test () |> pureState |> run (fun x -> (fun s -> (x, s))) |> (fun f -> f 1) // // (4, 4)
+stateHandler 1 (test ()) // (4, 4)
 ```
 
 
 [Eff]: http://math.andrej.com/wp-content/uploads/2012/03/eff.pdf
 [OCaml]: http://www.lpw25.net/ocaml2015-abs2.pdf
 [Haskell]: http://homepages.inf.ed.ac.uk/slindley/papers/handlers.pdf
+[Eff Directly in OCaml]: http://kcsrk.info/papers/eff_ocaml_ml16.pdf
