@@ -1,5 +1,5 @@
 # Eff
-Eff is a library for programming with Algebraic Effects in F# inspired by the [Eff] programming language and the implementation of Algebraic Effects in [OCaml]-[Haskell] and especially from the paper [Eff Directly in OCaml].
+Eff is a library for programming with Algebraic Effects in F# inspired by the [Eff] programming language and the implementation of Algebraic Effects in [OCaml]-Haskell([1], [2]) and especially from the paper [Eff Directly in OCaml].
 
 ``` fsharp
 // state effect example
@@ -29,5 +29,6 @@ stateHandler 1 (test ()) // (4, 4)
 
 [Eff]: http://math.andrej.com/wp-content/uploads/2012/03/eff.pdf
 [OCaml]: http://www.lpw25.net/ocaml2015-abs2.pdf
-[Haskell]: http://homepages.inf.ed.ac.uk/slindley/papers/handlers.pdf
+[1]: http://homepages.inf.ed.ac.uk/slindley/papers/handlers.pdf
+[2]: http://okmij.org/ftp/Haskell/extensible/more.pdf
 [Eff Directly in OCaml]: http://kcsrk.info/papers/eff_ocaml_ml16.pdf
