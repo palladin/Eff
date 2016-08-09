@@ -2,7 +2,7 @@
 Eff is a library for programming with Algebraic Effects in F# inspired by the [Eff] programming language and the implementation of Algebraic Effects in [OCaml]-[Haskell] and especially from the paper [Eff Directly in OCaml].
 
 ``` fsharp
-// example
+// state effect example
 let test () = 
     eff {
         let! x = get ()
@@ -12,6 +12,7 @@ let test () =
         return! get ()
     } 
     
+// state effect handler
 let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : ('T * 'S) =
     let rec loop (s : 'S) (effect : Effect) = 
         match effect with
