@@ -4,14 +4,13 @@ open System
 
 // Core types and Builder
 
-type Eff<'T, 'R> = Eff of ((('T -> 'R) * (exn -> 'R)) -> 'R)
+type Eff<'T, 'R when 'R :> Effect> = Eff of ((('T -> 'R) * (exn -> 'R)) -> 'R)
 
 // Annotation type for Effects
-type Effect() =
-    inherit Exception()
 
-type Done<'T>(v : 'T) = 
-    inherit Effect()
+and Effect = interface end
+and Done<'T>(v : 'T) = 
+    interface Effect
     member self.Value = v
 
 // Basic builder 
