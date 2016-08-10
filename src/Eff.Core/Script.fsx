@@ -57,6 +57,6 @@ let nonDetHandler (eff : Eff<'T, Effect>) : Eff<seq<'T>, Effect> =
             let (Eff cont) = eff 
             let effK' = loop k effK
             let effect = cont (done', exK, effK')
-            loop k effK' effect)
+            effK' effect)
     
 nonDetTest () |> nonDetHandler |> run // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]
