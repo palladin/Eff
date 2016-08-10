@@ -41,17 +41,17 @@ let nonDetTest () : Eff<int * string, Effect> =
         return (x, y)
     }
 
-let nonDetHandler (eff : Eff<'T, Effect>) : Eff<seq<'T>, Effect> =
-    let rec loop (k : seq<'T> -> Effect) (effK : Effect -> Effect) (effect : Effect) : Effect = 
+let nonDetHandler (eff : Eff<'T, Effect>) : Eff<list<'T>, Effect> =
+    let rec loop (k : list<'T> -> Effect) (effK : Effect -> Effect) (effect : Effect) : Effect = 
         match effect with
         | :? NonDetEffect<Effect> as nonDet -> 
             let results = nonDet.Invoke <| { new NonDetUnPack<Effect, Effect> with
                                                 member self.Invoke k' = 
-                                                    loop k effK (k' ())
+                                                    k []
                                                 member self.Invoke<'C>(first : 'C, second : 'C, k' : 'C -> Effect) =
-                                                    loop (fun seqs -> loop (fun seqs' -> k <| Seq.append seqs seqs') effK (k' second)) effK (k' first) }
+                                                    loop (fun seqs -> loop (fun seqs' -> k <| List.append seqs seqs') effK (k' second)) effK (k' first) }
             results
-        | :? Done<'T> as done' -> k <| Seq.singleton done'.Value
+        | :? Done<'T> as done' -> k [done'.Value]
         | _ -> effK effect
     Eff (fun (k, exK, effK) -> 
             let (Eff cont) = eff 
@@ -59,4 +59,4 @@ let nonDetHandler (eff : Eff<'T, Effect>) : Eff<seq<'T>, Effect> =
             let effect = cont (done', exK, effK')
             effK' effect)
     
-nonDetTest () |> nonDetHandler |> run // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]
+nonDetTest () |> nonDetHandler |> run // [(1, "1"); (1, "2"); (2, "1"); (2, "2")]
