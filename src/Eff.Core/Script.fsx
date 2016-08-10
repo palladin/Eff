@@ -17,16 +17,19 @@ let test () : Eff<int, Effect> =
         return! get ()
     } 
 
-let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : ('T * 'S) =
+let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T * 'S, Effect> =
     let rec loop (s : 'S) (effect : Effect) = 
         match effect with
         | :? Get<'S, Effect> as get -> loop s (get.K s) 
         | :? Put<'S, Effect> as put -> loop put.Value (put.K ())
         | :? Done<'T> as done' -> (done'.Value, s)
         | _ -> failwith "Unhandled effect"
-    loop s (run done' eff) 
+    Eff (fun (k, exK) -> 
+                let (Eff cont) = eff 
+                let effect = cont (done', exK)
+                k <| loop s effect) 
 
-stateHandler 1 (test ()) // (4, 4)
+test () |> stateHandler 1 |> run // (4, 4)
 
 
 // Non-determinism examples
@@ -37,7 +40,7 @@ let nonDetTest () : Eff<int * string, Effect> =
         return (x, y)
     }
 
-let nonDetHandler (eff : Eff<'T, Effect>) : seq<'T> =
+let nonDetHandler (eff : Eff<'T, Effect>) : Eff<seq<'T>, Effect> =
     let rec loop (effect : Effect) : seq<'T> = 
         match effect with
         | :? NonDetEffect<Effect> as nonDet -> 
@@ -48,6 +51,9 @@ let nonDetHandler (eff : Eff<'T, Effect>) : seq<'T> =
             results
         | :? Done<'T> as done' -> Seq.singleton done'.Value
         | _ -> failwith "Unhandled effect"
-    loop (run done' eff) 
+    Eff (fun (k, exK) -> 
+            let (Eff cont) = eff 
+            let effect = cont (done', exK)
+            k <| loop effect)
     
-nonDetTest () |> nonDetHandler // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]
+nonDetTest () |> nonDetHandler |> run // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]

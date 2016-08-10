@@ -35,7 +35,12 @@ module Eff =
 
     let done' (v : 'T) : Effect = new Done<'T>(v) :> _ 
     let shift (f : ('T -> 'R) -> 'R) : Eff<'T, 'R> = Eff (fun (k, _) -> f k)
-    let run (return' : 'T -> 'R) (eff : Eff<'T, 'R>) = let (Eff cont) = eff in cont (return', fun ex -> raise ex)
+    let run (eff : Eff<'T, Effect>) : 'T = 
+        let (Eff cont) = eff 
+        let effect = cont (done', fun ex -> raise ex)
+        match effect with
+        | :? Done<'T> as done' -> done'.Value
+        | _ -> failwith "Unhandled effect"
 
     let eff = new EffBuilder()
     
