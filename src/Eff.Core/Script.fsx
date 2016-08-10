@@ -24,9 +24,9 @@ let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T * 'S, Effect> =
         | :? Put<'S, Effect> as put -> loop put.Value (put.K ())
         | :? Done<'T> as done' -> (done'.Value, s)
         | _ -> failwith "Unhandled effect"
-    Eff (fun (k, exK) -> 
+    Eff (fun (k, exK, effK) -> 
                 let (Eff cont) = eff 
-                let effect = cont (done', exK)
+                let effect = cont (done', exK, effK)
                 k <| loop s effect) 
 
 test () |> stateHandler 1 |> run // (4, 4)
@@ -51,9 +51,9 @@ let nonDetHandler (eff : Eff<'T, Effect>) : Eff<seq<'T>, Effect> =
             results
         | :? Done<'T> as done' -> Seq.singleton done'.Value
         | _ -> failwith "Unhandled effect"
-    Eff (fun (k, exK) -> 
+    Eff (fun (k, exK, effK) -> 
             let (Eff cont) = eff 
-            let effect = cont (done', exK)
+            let effect = cont (done', exK, effK)
             k <| loop effect)
     
 nonDetTest () |> nonDetHandler |> run // seq [(1, "1"); (1, "2"); (2, "1"); (2, "2")]

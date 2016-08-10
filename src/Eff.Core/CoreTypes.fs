@@ -4,7 +4,7 @@ open System
 
 // Core types and Builder
 
-type Eff<'T, 'R when 'R :> Effect> = Eff of ((('T -> 'R) * (exn -> 'R)) -> 'R)
+type Eff<'T, 'Eff when 'Eff :> Effect> = Eff of ((('T -> 'Eff) * (exn -> 'Eff) * ('Eff -> 'Eff)) -> 'Eff)
 
 // Annotation type for Effects
 
@@ -15,29 +15,29 @@ and Done<'T>(v : 'T) =
 
 // Basic builder 
 type EffBuilder() = 
-    member self.Return (x : 'T) : Eff<'T, 'R> = Eff (fun (k, _) -> k x)
-    member self.ReturnFrom (eff : Eff<'T, 'R>) : Eff<'T, 'R> = eff
-    member self.Bind (eff : Eff<'A, 'R>, f : 'A -> Eff<'B, 'R>) : Eff<'B, 'R> =
-        Eff (fun (k, exk) -> let (Eff cont) = eff in cont ((fun v -> let (Eff cont') = f v in cont' (k, exk)), exk))
-    member self.TryWith (eff : Eff<'T, 'R>, f : exn -> Eff<'T, 'R>) : Eff<'T, 'R> =
-        Eff (fun (k, exk) -> 
+    member self.Return (x : 'T) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> k x)
+    member self.ReturnFrom (eff : Eff<'T, 'Eff>) : Eff<'T, 'Eff> = eff
+    member self.Bind (eff : Eff<'A, 'Eff>, f : 'A -> Eff<'B, 'Eff>) : Eff<'B, 'Eff> =
+        Eff (fun (k, exk, effK) -> let (Eff cont) = eff in cont ((fun v -> let (Eff cont') = f v in cont' (k, exk, effK)), exk, effK))
+    member self.TryWith (eff : Eff<'T, 'Eff>, f : exn -> Eff<'T, 'Eff>) : Eff<'T, 'Eff> =
+        Eff (fun (k, exk, effK) -> 
                 let (Eff cont) = eff
                 cont (k, (fun ex -> 
                     match (try Choice1Of2 (f ex) with ex -> Choice2Of2 ex) with
-                    | Choice1Of2 (Eff cont') -> cont' (k, exk)
-                    | Choice2Of2 ex -> exk ex)))
-     member self.Delay (f : unit -> Eff<'T, 'R>) : Eff<'T, 'R> = 
-        Eff (fun (k, exk) -> let (Eff cont) = f () in cont (k, exk))
+                    | Choice1Of2 (Eff cont') -> cont' (k, exk, effK)
+                    | Choice2Of2 ex -> exk ex), effK))
+     member self.Delay (f : unit -> Eff<'T, 'Eff>) : Eff<'T, 'Eff> = 
+        Eff (fun (k, exk, effK) -> let (Eff cont) = f () in cont (k, exk, effK))
 
 
 [<AutoOpen>]
 module Eff = 
 
     let done' (v : 'T) : Effect = new Done<'T>(v) :> _ 
-    let shift (f : ('T -> 'R) -> 'R) : Eff<'T, 'R> = Eff (fun (k, _) -> f k)
+    let shift (f : ('T -> 'Eff) -> 'Eff) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> f k)
     let run (eff : Eff<'T, Effect>) : 'T = 
         let (Eff cont) = eff 
-        let effect = cont (done', fun ex -> raise ex)
+        let effect = cont (done', (fun ex -> raise ex), id)
         match effect with
         | :? Done<'T> as done' -> done'.Value
         | _ -> failwith "Unhandled effect"
