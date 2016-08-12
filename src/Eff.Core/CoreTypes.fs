@@ -40,7 +40,7 @@ module Eff =
         let effect = cont (done', (fun ex -> raise ex), id)
         match effect with
         | :? Done<'T> as done' -> done'.Value
-        | _ -> failwith "Unhandled effect"
+        | _ -> failwithf "Unhandled effect %A" effect
 
     let eff = new EffBuilder()
     

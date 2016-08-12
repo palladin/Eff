@@ -60,3 +60,17 @@ let nonDetHandler (eff : Eff<'T, Effect>) : Eff<list<'T>, Effect> =
             effK' effect)
     
 nonDetTest () |> nonDetHandler |> run // [(1, "1"); (1, "2"); (2, "1"); (2, "2")]
+
+
+
+// Combine state and non-determinism examples
+let stateNonDetTest () : Eff<int * string, Effect> = 
+    eff {
+        let! n = get ()
+        let! x = choose (n , n + 1)
+        let! y = choose (string n, string (n + 1))
+        return (x, y)
+    }
+
+
+let foo = stateNonDetTest () |> stateHandler 1 |> nonDetHandler |> run 
