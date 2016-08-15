@@ -24,5 +24,20 @@ module State =
         shift (fun k -> new Get<'S, Effect>(k) :> _)
 
 
+    // state effect handlers
+    let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T * 'S, Effect> =
+        let rec loop (s : 'S) (resultK : 'T * 'S -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
+            match effect with
+            | :? Get<'S, Effect> as get -> loop s resultK effK (get.K s) k
+            | :? Put<'S, Effect> as put -> loop put.Value resultK effK (put.K ()) k
+            | :? Done<'T> as done' -> 
+                let effect' = resultK (done'.Value, s)
+                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
+            | _ ->
+                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
+        Eff (fun (k, exK, EffCont effK) -> 
+                    let (Eff cont) = eff 
+                    let effK' = loop s k effK
+                    let effect = cont (done', exK, EffCont effK')
+                    runEffCont effect (EffCont effK')) 
 
-    

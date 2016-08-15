@@ -3,11 +3,10 @@
 open System
 
 // Core types and Builder
-
-type Eff<'T, 'Eff when 'Eff :> Effect> = Eff of ((('T -> 'Eff) * (exn -> 'Eff) * ('Eff -> 'Eff)) -> 'Eff)
+type EffCont<'Eff when 'Eff :> Effect> = EffCont of ('Eff -> ('Eff -> EffCont<'Eff> -> 'Eff) -> 'Eff)
+and Eff<'T, 'Eff when 'Eff :> Effect> = Eff of ((('T -> 'Eff) * (exn -> 'Eff) * EffCont<'Eff>) -> 'Eff)
 
 // Annotation type for Effects
-
 and Effect = interface end
 and Done<'T>(v : 'T) = 
     interface Effect
@@ -35,9 +34,17 @@ module Eff =
 
     let done' (v : 'T) : Effect = new Done<'T>(v) :> _ 
     let shift (f : ('T -> 'Eff) -> 'Eff) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> f k)
-    let run (eff : Eff<'T, Effect>) : 'T = 
+
+    let rec runEffCont (effect : Effect) (EffCont effK : EffCont<Effect>) : Effect = 
+        effK effect (fun effect' effK' -> runEffCont effect' effK')
+
+    let run (eff : Eff<'T, Effect>) : 'T =
+        let rec loop (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
+            match effect with
+            | :? Done<'T> -> effect
+            | _ -> k effect (EffCont loop)
         let (Eff cont) = eff 
-        let effect = cont (done', (fun ex -> raise ex), id)
+        let effect = cont (done', (fun ex -> raise ex), EffCont loop)
         match effect with
         | :? Done<'T> as done' -> done'.Value
         | _ -> failwithf "Unhandled effect %A" effect
