@@ -36,7 +36,7 @@ module Eff =
     let shift (f : ('T -> 'Eff) -> 'Eff) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> f k)
 
     let rec runEffCont (effect : Effect) (EffCont effK : EffCont<Effect>) : Effect = 
-        effK effect (fun effect' effK' -> runEffCont effect' effK')
+        effK effect (fun effect' effK' -> if Object.ReferenceEquals(effect, effect') then failwithf "Unhandled effect %A" effect' else runEffCont effect' effK')
 
     let run (eff : Eff<'T, Effect>) : 'T =
         let rec loop (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 

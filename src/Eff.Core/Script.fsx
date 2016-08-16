@@ -43,3 +43,14 @@ let stateNonDetTest () : Eff<int * string, Effect> =
 
 
 stateNonDetTest () |> stateHandler 1 |> nonDetHandler |> run // [((1, "1"), 1); ((1, "2"), 1); ((2, "1"), 1); ((2, "2"), 1)]
+
+// Unhandled effect
+let unhandledEffectTest () : Eff<int, Effect> = 
+    eff {
+        let! n = get ()
+        return n
+    }
+
+unhandledEffectTest () |> run // Unhandled effect Exception
+unhandledEffectTest () |> nonDetHandler |> run // Unhandled effect Exception
+unhandledEffectTest () |> stateHandler 1 |> run // (1, 1)
