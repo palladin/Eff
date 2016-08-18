@@ -2,13 +2,14 @@
 #load "CoreTypes.fs"
 #load "State.fs"
 #load "NonDet.fs"
+#load "Log.fs"
 open Eff.Core
 open Eff.Core.State
 open Eff.Core.NonDet
+open Eff.Core.Log
 
 // State examples
-
-let test () : Eff<int, Effect> = 
+let stateTest () : Eff<int, Effect> = 
     eff {
         let! x = get ()
         do! put (x + 1)
@@ -17,7 +18,7 @@ let test () : Eff<int, Effect> =
         return! get ()
     } 
 
-test () |> stateHandler 1 |> run // (4, 4)
+stateTest () |> stateHandler 1 |> run // (4, 4)
 
 // Non-determinism examples
 let nonDetTest () : Eff<int * string, Effect> = 
@@ -54,3 +55,14 @@ let unhandledEffectTest () : Eff<int, Effect> =
 unhandledEffectTest () |> run // Unhandled effect Exception
 unhandledEffectTest () |> nonDetHandler |> run // Unhandled effect Exception
 unhandledEffectTest () |> stateHandler 1 |> run // (1, 1)
+
+// Log effect
+let logTest () : Eff<unit, Effect> = 
+    eff {
+        do! log "Test1"
+        do! log "Test2"
+    }
+
+logTest () |> pureLogHandler<unit, string> |> run // ((), ["Test2"; "Test1"])
+logTest () |> consoleLogHandler<unit, string> |> run // printf side-effect: Log: "Test1"\n Log: "Test2"\n
+
