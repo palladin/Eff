@@ -49,6 +49,7 @@
     <None Include="Script.fsx" />
     <Compile Include="State.fs" />
     <Compile Include="Log.fs" />
+    <Compile Include="Concurrency.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

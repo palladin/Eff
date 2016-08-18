@@ -16,7 +16,11 @@ and Done<'T>(v : 'T) =
 type EffBuilder() = 
     member self.Return (x : 'T) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> k x)
     member self.ReturnFrom (eff : Eff<'T, 'Eff>) : Eff<'T, 'Eff> = eff
-    member self.Bind (eff : Eff<'A, 'Eff>, f : 'A -> Eff<'B, 'Eff>) : Eff<'B, 'Eff> =
+    member self.Combine (first : Eff<'T, 'Eff>, second : Eff<unit, 'Eff>) : Eff<unit, 'Eff> = 
+        self.Bind(first, fun _ -> second)
+    member self.Zero () : Eff<unit, 'Eff> = 
+        Eff (fun (k, _, _) -> k ())
+    member self.Bind<'A, 'B, 'Eff when 'Eff :> Effect> (eff : Eff<'A, 'Eff>, f : 'A -> Eff<'B, 'Eff>) : Eff<'B, 'Eff> =
         Eff (fun (k, exk, effK) -> let (Eff cont) = eff in cont ((fun v -> let (Eff cont') = f v in cont' (k, exk, effK)), exk, effK))
     member self.TryWith (eff : Eff<'T, 'Eff>, f : exn -> Eff<'T, 'Eff>) : Eff<'T, 'Eff> =
         Eff (fun (k, exk, effK) -> 

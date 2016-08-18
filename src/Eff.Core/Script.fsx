@@ -3,10 +3,12 @@
 #load "State.fs"
 #load "NonDet.fs"
 #load "Log.fs"
+#load "Concurrency.fs"
 open Eff.Core
 open Eff.Core.State
 open Eff.Core.NonDet
 open Eff.Core.Log
+open Eff.Core.Concurrent
 
 // State examples
 let stateTest () : Eff<int, Effect> = 
@@ -57,12 +59,30 @@ unhandledEffectTest () |> nonDetHandler |> run // Unhandled effect Exception
 unhandledEffectTest () |> stateHandler 1 |> run // (1, 1)
 
 // Log effect
-let logTest () : Eff<unit, Effect> = 
+let logTest (n : int) : Eff<unit, Effect> = 
     eff {
-        do! log "Test1"
-        do! log "Test2"
+        do! logf "Test %d" n
+        do! logf "Test %d" (n + 1)
     }
 
-logTest () |> pureLogHandler<unit, string> |> run // ((), ["Test2"; "Test1"])
-logTest () |> consoleLogHandler<unit, string> |> run // printf side-effect: Log: "Test1"\n Log: "Test2"\n
+logTest 1 |> pureLogHandler<unit, string> |> run // ((), ["Test2"; "Test1"])
+logTest 1 |> consoleLogHandler<unit, string> |> run // printf side-effect: Log: "Test1"\n Log: "Test2"\n
 
+// Concurrency effect
+// http://kcsrk.info/ocaml/multicore/2015/05/20/effects-multicore/
+let rec concurrentTest id depth =
+    eff {
+        do! logf "Starting number %d!" id
+        if depth > 0 then 
+            do! logf "Forking number %d!" (id * 2 + 1)
+            do! fork <| concurrentTest (id * 2 + 1) (depth - 1)
+            do! logf "Forking number %d!" (id * 2 + 2)
+            do! fork <| concurrentTest (id * 2 + 2) (depth - 1)
+        else 
+            do! logf "Yielding in number %d!" id
+            do! yield' ()
+            do! logf "Resumed number %d!" id
+        do! logf "Finishing number %d!" id
+    }
+
+concurrentTest 0 2 |> pureLogHandler<unit, string> |> sequentialHandler |> run 
