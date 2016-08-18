@@ -11,8 +11,10 @@ type Log<'S, 'Eff when 'Eff :> Effect>(v : 'S, k : unit -> 'Eff) =
 module Log = 
 
     // log helper functions
-    let log (v : 'S) : Eff<unit, Effect> =
-        shift (fun k -> new Log<'S, Effect>(v, k) :> _)
+    let log (v : string) : Eff<unit, Effect> =
+        shift (fun k -> new Log<string, Effect>(v, k) :> _)
+    let logf fmt = Printf.ksprintf log fmt
+    
 
 
     // log effect handlers
