@@ -41,3 +41,19 @@ module State =
                     let effect = cont (done', exK, EffCont effK')
                     runEffCont effect (EffCont effK')) 
 
+    let refHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T, Effect> =
+        let valueRef = ref s
+        let rec loop (resultK : 'T -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
+            match effect with
+            | :? Get<'S, Effect> as get -> loop resultK effK (get.K !valueRef) k
+            | :? Put<'S, Effect> as put -> valueRef := put.Value; loop resultK effK (put.K ()) k
+            | :? Done<'T> as done' -> 
+                let effect' = resultK done'.Value
+                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
+            | _ ->
+                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
+        Eff (fun (k, exK, EffCont effK) -> 
+                    let (Eff cont) = eff 
+                    let effK' = loop k effK
+                    let effect = cont (done', exK, EffCont effK')
+                    runEffCont effect (EffCont effK')) 

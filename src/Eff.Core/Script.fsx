@@ -21,6 +21,7 @@ let stateTest () : Eff<int, Effect> =
     } 
 
 stateTest () |> stateHandler 1 |> run // (4, 4)
+stateTest () |> refHandler 1 |> run // 4
 
 // Non-determinism examples
 let nonDetTest () : Eff<int * string, Effect> = 
