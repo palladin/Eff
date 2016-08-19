@@ -86,3 +86,4 @@ let rec concurrentTest id depth =
     }
 
 concurrentTest 0 2 |> pureLogHandler<unit, string> |> sequentialHandler |> run 
+concurrentTest 0 2 |> consoleLogHandler<unit, string> |> threadPoolHandler |> run 
