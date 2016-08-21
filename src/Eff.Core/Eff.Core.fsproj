@@ -47,8 +47,9 @@
     <Compile Include="CoreTypes.fs" />
     <Compile Include="NonDet.fs" />
     <Compile Include="State.fs" />
-    <Compile Include="Log.fs" />
     <Compile Include="Concurrency.fs" />
+    <Compile Include="Log.fs" />
+    <Compile Include="Searcher.fs" />
     <None Include="Script.fsx" />
   </ItemGroup>
   <PropertyGroup>
