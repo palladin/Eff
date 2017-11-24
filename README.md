@@ -13,11 +13,11 @@ let test () =
     } 
     
 // state effect handler
-let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : ('T * 'S) =
+let stateHandler (s : 'S) (eff : Eff<#State<'S>, 'T>) : ('T * 'S) =
     let rec loop (s : 'S) (effect : Effect) = 
         match effect with
-        | :? Get<'S, Effect> as get -> loop s (get.K s) 
-        | :? Put<'S, Effect> as put -> loop put.Value (put.K ())
+        | :? Get<'S> as get -> loop s (get.K s) 
+        | :? Put<'S> as put -> loop put.Value (put.K ())
         | :? Done<'T> as done' -> (done'.Value, s)
         | _ -> failwith "Unhandled effect"
     loop s (run done' eff) 
