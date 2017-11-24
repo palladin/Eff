@@ -95,8 +95,8 @@ let rec concurrentTest id depth =
 
 type ExEffect'' = inherit Log<string> inherit Concur
 
-concurrentTest 0 2 |> pureLogHandler<ExEffect'', _, _> |> sequentialHandler |> run 
-concurrentTest 0 2 |> consoleLogHandler<unit, string> |> threadPoolHandler |> run 
+concurrentTest 0 2 |> sequentialHandler<ExEffect'', _, _> |> run 
+concurrentTest 0 2 |> threadPoolHandler<ExEffect'', _, _> |> run 
 
 // http://math.andrej.com/2011/12/06/how-to-make-the-impossible-functionals-run-even-faster/
 let findNeighborhood (p : (int -> Eff<'U, bool>) -> Eff<'U, bool>) : Eff<'U, bool> =
