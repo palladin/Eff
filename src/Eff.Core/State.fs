@@ -1,59 +1,60 @@
 ﻿namespace Eff.Core
 
-type StateEffect<'S> = 
-    inherit Effect
-
-// Basic state operations
-type Put<'S, 'Eff when 'Eff :> Effect>(v : 'S, k : unit -> 'Eff) =
-    interface StateEffect<'S>
+type State<'S> = inherit Effect
+type Put<'S>(v : 'S, k : unit -> Effect) =
+    interface State<'S> with
+        member self.UnPack(lambda : Lambda) : Effect =
+            new Put<'S>(v, lambda.Invoke<unit> k) :> _
     member self.Value = v
     member self.K = k
-
-type Get<'S, 'Eff when 'Eff :> Effect>(k : 'S -> 'Eff) =
-    interface StateEffect<'S>
+type Get<'S>(k : 'S -> Effect) =
+    interface State<'S> with
+        member self.UnPack(lambda : Lambda) : Effect =             
+                new Get<'S>(lambda.Invoke<'S> k) :> _
     member self.K = k
-
 
 module State = 
 
     // state helper functions
-    let put (v : 'S) : Eff<unit, Effect> =
-        shift (fun k -> new Put<'S, Effect>(v, k) :> _)
-
-    let get () : Eff<'S, Effect> = 
-        shift (fun k -> new Get<'S, Effect>(k) :> _)
+    let get<'U, 'S when 'U :> State<'S>>() : Eff<'U, 'S> = 
+        shift (fun k -> new Get<'S>(k) :> _)
+    let put<'U, 'S when 'U :> State<'S>> : 'S -> Eff<'U, unit> = fun s ->
+        shift (fun k -> new Put<'S>(s, k) :> _)
 
 
     // state effect handlers
-    let stateHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T * 'S, Effect> =
-        let rec loop (s : 'S) (resultK : 'T * 'S -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
-            match effect with
-            | :? Get<'S, Effect> as get -> loop s resultK effK (get.K s) k
-            | :? Put<'S, Effect> as put -> loop put.Value resultK effK (put.K ()) k
-            | :? Done<'T> as done' -> 
-                let effect' = resultK (done'.Value, s)
-                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
-            | _ ->
-                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
-        Eff (fun (k, exK, EffCont effK) -> 
-                    let (Eff cont) = eff 
-                    let effK' = loop s k effK
-                    let effect = cont (done', exK, EffCont effK')
-                    runEffCont effect (EffCont effK')) 
+    
+    let rec stateHandler<'U, 'S, 'A when 'U :> State<'S>> 
+        : 'S -> Eff<'U, 'A> -> Eff<'U, 'S * 'A> = 
+        fun state eff ->
+            let rec loop : ('S * 'A -> Effect) -> 'S -> Effect -> Effect = fun k state effect ->
+                match effect with
+                | :? Get<'S> as get -> loop k state (get.K state) 
+                | :? Put<'S> as put -> loop k put.Value (put.K ())
+                | :? Done<'A> as done' -> k (state, done'.Value)
+                | _ -> effect.UnPack {
+                    new Lambda with
+                        member self.Invoke<'X> (k' : 'X -> Effect) = 
+                            fun x -> loop k state (k' x)
+                }
+            let (Eff effK) = eff
+            let effect = effK done'
+            Eff (fun k -> loop k state effect)
 
-    let refHandler (s : 'S) (eff : Eff<'T, Effect>) : Eff<'T, Effect> =
-        let valueRef = ref s
-        let rec loop (resultK : 'T -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
-            match effect with
-            | :? Get<'S, Effect> as get -> loop resultK effK (get.K !valueRef) k
-            | :? Put<'S, Effect> as put -> valueRef := put.Value; loop resultK effK (put.K ()) k
-            | :? Done<'T> as done' -> 
-                let effect' = resultK done'.Value
-                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
-            | _ ->
-                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
-        Eff (fun (k, exK, EffCont effK) -> 
-                    let (Eff cont) = eff 
-                    let effK' = loop k effK
-                    let effect = cont (done', exK, EffCont effK')
-                    runEffCont effect (EffCont effK')) 
+    let rec refHandler<'U, 'S, 'A when 'U :> State<'S>> 
+        : 'S -> Eff<'U, 'A> -> Eff<'U, 'A> = 
+        fun state eff ->
+            let valueRef = ref state
+            let rec loop : ('A -> Effect) -> Effect -> Effect = fun k effect ->
+                match effect with
+                | :? Get<'S> as get -> loop k (get.K !valueRef) 
+                | :? Put<'S> as put -> valueRef := put.Value; loop k (put.K ())
+                | :? Done<'A> as done' -> k done'.Value
+                | _ -> effect.UnPack {
+                    new Lambda with
+                        member self.Invoke<'X> (k' : 'X -> Effect) = 
+                            fun x -> loop k (k' x)
+                }
+            let (Eff effK) = eff
+            let effect = effK done'
+            Eff (fun k -> loop k effect)

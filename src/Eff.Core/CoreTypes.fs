@@ -3,55 +3,48 @@
 open System
 
 // Core types and Builder
-type EffCont<'Eff when 'Eff :> Effect> = EffCont of ('Eff -> ('Eff -> EffCont<'Eff> -> 'Eff) -> 'Eff)
-and Eff<'T, 'Eff when 'Eff :> Effect> = Eff of ((('T -> 'Eff) * (exn -> 'Eff) * EffCont<'Eff>) -> 'Eff)
-
+type Eff<'U, 'A when 'U :> Effect> = Eff of (('A -> Effect) -> Effect)
 // Annotation type for Effects
-and Effect = interface end
-and Done<'T>(v : 'T) = 
-    interface Effect
+and Effect = 
+    abstract UnPack : Lambda -> Effect 
+and Lambda =
+        abstract Invoke<'X> : ('X -> Effect) -> ('X -> Effect)
+and Done<'A>(v : 'A) =
     member self.Value = v
+    interface Effect with
+        member self.UnPack(_ : Lambda) : Effect =
+                new Done<'A>(v) :> _
 
 // Basic builder 
 type EffBuilder() = 
-    member self.Return (x : 'T) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> k x)
-    member self.ReturnFrom (eff : Eff<'T, 'Eff>) : Eff<'T, 'Eff> = eff
-    member self.Combine (first : Eff<'T, 'Eff>, second : Eff<unit, 'Eff>) : Eff<unit, 'Eff> = 
+    member self.Return<'U, 'A when 'U :> Effect> (v : 'A) : Eff<'U, 'A> = 
+        Eff (fun k -> k v)
+    member self.ReturnFrom (eff : Eff<'U, 'A>) = eff
+    member self.Combine (first : Eff<'U, 'A>, second : Eff<'U, unit>) : Eff<'U, unit> = 
         self.Bind(first, fun _ -> second)
-    member self.Zero () : Eff<unit, 'Eff> = 
-        Eff (fun (k, _, _) -> k ())
-    member self.Bind<'A, 'B, 'Eff when 'Eff :> Effect> (eff : Eff<'A, 'Eff>, f : 'A -> Eff<'B, 'Eff>) : Eff<'B, 'Eff> =
-        Eff (fun (k, exk, effK) -> let (Eff cont) = eff in cont ((fun v -> let (Eff cont') = f v in cont' (k, exk, effK)), exk, effK))
-    member self.TryWith (eff : Eff<'T, 'Eff>, f : exn -> Eff<'T, 'Eff>) : Eff<'T, 'Eff> =
-        Eff (fun (k, exk, effK) -> 
-                let (Eff cont) = eff
-                cont (k, (fun ex -> 
-                    match (try Choice1Of2 (f ex) with ex -> Choice2Of2 ex) with
-                    | Choice1Of2 (Eff cont') -> cont' (k, exk, effK)
-                    | Choice2Of2 ex -> exk ex), effK))
-     member self.Delay (f : unit -> Eff<'T, 'Eff>) : Eff<'T, 'Eff> = 
-        Eff (fun (k, exk, effK) -> let (Eff cont) = f () in cont (k, exk, effK))
+    member self.Zero () : Eff<'U, unit> = 
+        Eff (fun k -> k ())
+    member self.Bind<'U, 'A, 'B when 'U :> Effect>(eff : Eff<'U, 'A>, f : 'A -> Eff<'U, 'B>) : Eff<'U, 'B> = 
+        Eff (fun k -> let (Eff effK) = eff in effK (fun v -> let (Eff effK') = f v in effK' k))    
+     member self.Delay (f : unit -> Eff<'U, 'A>) : Eff<'U, 'A> = 
+        Eff (fun k -> let (Eff cont) = f () in cont k)
 
 
 [<AutoOpen>]
 module Eff = 
 
-    let done' (v : 'T) : Effect = new Done<'T>(v) :> _ 
-    let shift (f : ('T -> 'Eff) -> 'Eff) : Eff<'T, 'Eff> = Eff (fun (k, _, _) -> f k)
+    let done' (v : 'A) : Effect = 
+        new Done<'A>(v) :> _ 
+    let shift (f : ('A -> Effect) -> Effect) : Eff<'U, 'A> = 
+        Eff (fun k -> f k)
 
-    let rec runEffCont (effect : Effect) (EffCont effK : EffCont<Effect>) : Effect = 
-        effK effect (fun effect' effK' -> if Object.ReferenceEquals(effect, effect') then failwithf "Unhandled effect %A" effect' else runEffCont effect' effK')
-
-    let run (eff : Eff<'T, Effect>) : 'T =
-        let rec loop (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
+    let rec run<'U, 'A when 'U :> Effect> : Eff<'U, 'A> -> 'A = 
+        fun eff ->
+            let (Eff effK) = eff
+            let effect = effK done'
             match effect with
-            | :? Done<'T> -> effect
-            | _ -> k effect (EffCont loop)
-        let (Eff cont) = eff 
-        let effect = cont (done', (fun ex -> raise ex), EffCont loop)
-        match effect with
-        | :? Done<'T> as done' -> done'.Value
-        | _ -> failwithf "Unhandled effect %A" effect
+            | :? Done<'A> as done' -> done'.Value
+            | _ -> failwithf "Unhandled effect %A" effect
 
     let eff = new EffBuilder()
     

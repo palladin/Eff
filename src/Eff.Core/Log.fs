@@ -2,8 +2,12 @@
 
 
 // Basic log operation
-type Log<'S, 'Eff when 'Eff :> Effect>(v : 'S, k : unit -> 'Eff) =
-    interface Effect
+type Log<'S> = inherit Effect
+
+type LogEntry<'S>(v : 'S, k : unit -> Effect) =
+    interface Log<'S> with
+        member self.UnPack(lambda : Lambda) : Effect =
+            new LogEntry<'S>(v, lambda.Invoke<unit> k) :> _
     member self.Value = v
     member self.K = k
 
@@ -11,41 +15,49 @@ type Log<'S, 'Eff when 'Eff :> Effect>(v : 'S, k : unit -> 'Eff) =
 module Log = 
 
     // log helper functions
-    let log (v : string) : Eff<unit, Effect> =
-        shift (fun k -> new Log<string, Effect>(v, k) :> _)
+    let log<'U, 'S when 'U :> Log<'S>> : 'S -> Eff<'U, unit> = 
+        fun s -> shift (fun k -> new LogEntry<'S>(s, k) :> _)
     let logf fmt = Printf.ksprintf log fmt
     
 
 
     // log effect handlers
-    let pureLogHandler<'T, 'S> (eff : Eff<'T, Effect>) : Eff<'T * list<'S>, Effect> =
-        let rec loop (s : list<'S>) (resultK : 'T * list<'S> -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
-            match effect with
-            | :? Log<'S, Effect> as log -> loop (log.Value :: s)  resultK effK (log.K ()) k
-            | :? Done<'T> as done' -> 
-                let effect' = resultK (done'.Value, s)
-                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
-            | _ ->
-                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop s resultK effK')))
-        Eff (fun (k, exK, EffCont effK) -> 
-                    let (Eff cont) = eff 
-                    let effK' = loop [] k effK
-                    let effect = cont (done', exK, EffCont effK')
-                    runEffCont effect (EffCont effK')) 
+    let rec pureLogHandler<'U, 'S, 'A when 'U :> Log<'S>> 
+        : Eff<'U, 'A> -> Eff<'U, 'A * list<'S>> = 
+        fun eff ->
+            let rec loop : list<'S> -> (('A * list<'S>) -> Effect) -> Effect -> Effect = 
+                fun s k effect ->
+                    match effect with
+                    | :? LogEntry<'S> as log -> 
+                        loop (log.Value :: s) k (log.K ()) 
+                    | :? Done<'A> as done' -> k (done'.Value, s)
+                    | _ -> 
+                        effect.UnPack {
+                            new Lambda with
+                                member self.Invoke<'X> (k' : 'X -> Effect) = 
+                                    fun x -> loop s k (k' x)
+                        }
+            let (Eff effK) = eff
+            let effect = effK done'
+            Eff (fun k -> loop [] k effect)
 
-    let consoleLogHandler<'T, 'S> (eff : Eff<'T, Effect>) : Eff<'T, Effect> =
-        let rec loop (resultK : 'T -> Effect) (effK : Effect -> (Effect -> EffCont<Effect> -> Effect) -> Effect) (effect : Effect) (k : Effect -> EffCont<Effect> -> Effect) : Effect = 
-            match effect with
-            | :? Log<'S, Effect> as log -> printfn "Log: %A" log.Value; loop resultK effK (log.K ()) k
-            | :? Done<'T> as done' -> 
-                let effect' = resultK done'.Value
-                effK effect' (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
-            | _ ->
-                effK effect (fun effect' (EffCont effK') -> k effect' (EffCont (loop resultK effK')))
-        Eff (fun (k, exK, EffCont effK) -> 
-                    let (Eff cont) = eff 
-                    let effK' = loop k effK
-                    let effect = cont (done', exK, EffCont effK')
-                    runEffCont effect (EffCont effK')) 
+    let rec consoleLogHandler<'U, 'S, 'A when 'U :> Log<'S>> 
+        : Eff<'U, 'A> -> Eff<'U, 'A> = 
+        fun eff ->
+            let rec loop : ('A -> Effect) -> Effect -> Effect = 
+                fun k effect ->
+                    match effect with
+                    | :? LogEntry<'S> as log -> 
+                        printfn "Log: %A" log.Value; loop k (log.K ())
+                    | :? Done<'A> as done' -> k done'.Value
+                    | _ -> effect.UnPack {
+                        new Lambda with
+                            member self.Invoke<'X> (k' : 'X -> Effect) = 
+                                fun x -> loop k (k' x)
+                    }
+            let (Eff effK) = eff
+            let effect = effK done'
+            Eff (fun k -> loop k effect)
+
 
        

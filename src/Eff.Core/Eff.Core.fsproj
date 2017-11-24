@@ -46,11 +46,12 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="CoreTypes.fs" />
     <Compile Include="NonDet.fs" />
-    <Compile Include="State.fs" />
+    <Compile Include="Reader.fs" />
     <Compile Include="Concurrency.fs" />
     <Compile Include="Log.fs" />
     <Compile Include="Searcher.fs" />
     <None Include="Script.fsx" />
+    <Compile Include="State.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
