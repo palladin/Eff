@@ -15,6 +15,7 @@ open Eff.Core.Concurrent
 open Eff.Core.Searcher
 
 // State examples
+// val stateTest : unit -> Eff<'a,int> when 'a :> State<int>
 let stateTest () = 
     eff {
         let! x = get ()
@@ -28,12 +29,13 @@ stateTest () |> stateHandler 1 |> run // (4, 4)
 stateTest () |> refHandler 1 |> run // 4
 
 // Combine State and Reader effects
+// val example : unit -> Eff<'a,int> when 'a :> State<int> and 'a :> Reader<int>
 let example () =
     eff {
         do! put 1
         let! y = ask ()
         let! x = get ()
-        return x + 1
+        return x + y
     }
 
 type ExEffect = inherit State<int> inherit Reader<int>
@@ -41,6 +43,7 @@ type ExEffect = inherit State<int> inherit Reader<int>
 example () |> stateHandler<ExEffect, _, _> 0 |> readerHandler 1 |> run // (1, 2)
 
 // Non-determinism examples
+// val nonDetTest : unit -> Eff<#NonDetEffect,(int * string)>
 let nonDetTest () = 
     eff {
         let! x = choose (1, 2)
@@ -54,6 +57,7 @@ nonDetTest () |> nonDetHandler |> run // [(1, "1"); (1, "2"); (2, "1"); (2, "2")
 
 
 // Combine state and non-determinism examples
+// val stateNonDetTest : unit -> Eff<'a,(int * string)> when 'a :> NonDetEffect and 'a :> State<int>
 let stateNonDetTest () = 
     eff {
         let! n = get ()
@@ -67,6 +71,7 @@ stateNonDetTest () |> stateHandler<ExEffect', _, _> 1 |> nonDetHandler |> run //
 
 
 // Log effect
+// val logTest : n:int -> Eff<#Log<string>,unit>
 let logTest (n : int)  = 
     eff {
         do! logf "Test %d" n
@@ -78,6 +83,7 @@ logTest 1 |> consoleLogHandler |> run // printf side-effect: Log: "Test1"\n Log:
 
 // Concurrency effect
 // http://kcsrk.info/ocaml/multicore/2015/05/20/effects-multicore/
+// val concurrentTest : id:int -> depth:int -> Eff<'a,unit> when 'a :> Log<string> and 'a :> Concur
 let rec concurrentTest id depth =
     eff {
         do! logf "Starting number %d!" id
@@ -99,9 +105,11 @@ concurrentTest 0 2 |> sequentialHandler<ExEffect'', _, _> |> run
 concurrentTest 0 2 |> threadPoolHandler<ExEffect'', _, _> |> run 
 
 // http://math.andrej.com/2011/12/06/how-to-make-the-impossible-functionals-run-even-faster/
+// val findNeighborhood : p:((int -> Eff<'U,bool>) -> Eff<'U,bool>) -> Eff<'U,bool> when 'U :> Search<int>
 let findNeighborhood (p : (int -> Eff<'U, bool>) -> Eff<'U, bool>) : Eff<'U, bool> =
     p (fun n -> search n)
 
+// val epsilon : p:((int -> Eff<'a,bool>) -> Eff<'a,bool>) -> n:int -> Eff<'a,bool> when 'a :> Search<int>
 let epsilon p n = 
     eff {
         let! (_, s) = findNeighborhood p |> findNeighborhoodHandler
